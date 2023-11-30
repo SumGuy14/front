@@ -1,156 +1,122 @@
 import { useState } from 'react';
-// import QuizTimer from '../QuizTimer';
 import { Form, Button, Container, Row, Col } from 'react-bootstrap';
-// function calculateRemainingTime(startTime, duration) {
-//     // Parse start time
-//     const [time, amPm] = startTime.split(' ');
-//     const [startHour, startMinute] = time.split(':').map(Number);
-
-//     // Adjust for AM/PM
-//     const adjustedStartHour = amPm === 'PM' && startHour !== 12 ? startHour + 12 : startHour;
-
-//     // Convert start time and duration to total minutes
-//     const startTimeInMinutes = adjustedStartHour * 60 + startMinute;
-//     const endTimeInMinutes = startTimeInMinutes + duration;
-
-//     // Get current time and convert to total minutes
-//     const currentTime = new Date();
-//     const currentHour = currentTime.getHours();
-//     const currentMinute = currentTime.getMinutes();
-//     const currentTimeInMinutes = currentHour * 60 + currentMinute;
-
-//     // Check if the current time is within the eligible range
-//     const isEligible = currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes <= endTimeInMinutes;
-
-//     // Calculate remaining time
-//     const remainingTime = isEligible ? endTimeInMinutes - currentTimeInMinutes : 0;
-
-//     return { isEligible, remainingTime };
-
-// }
-
-// function ShowQuiz(props) {
-
-
-//     return (
-//         <Container>
-//             <Form onSubmit={handleSubmit}>
-//                 {questions.map((question, questionIndex) => (
-//                     <div key={questionIndex}>
-//                         <h4>{question.question}</h4>
-//                         <Form.Group as={Row}>
-//                             {question.options.map((option, optionIndex) => (
-//                                 <Col key={optionIndex} xs={12} md={6}>
-//                                     {question.options.length > 2 ? (
-//                                         <Form.Check
-//                                             type="checkbox"
-//                                             label={option}
-//                                             onChange={() => handleAnswerChange(questionIndex, optionIndex)}
-//                                             // checked={answers[questionIndex]?.includes(optionIndex)}
-//                                         />
-//                                     ) : (
-//                                         <Form.Check
-//                                             type="radio"
-//                                             label={option}
-//                                             onChange={() => handleAnswerChange(questionIndex, optionIndex)}
-//                                             // checked={answers[questionIndex]?.[0] === optionIndex}
-//                                         />
-//                                     )}
-//                                 </Col>
-//                             ))}
-//                         </Form.Group>
-//                     </div>
-//                 ))}
-//                 <Button variant="primary" type="submit">
-//                     Submit
-//                 </Button>
-//             </Form>
-//         </Container>
-//     );
-
-// }
-
-
-
-// ... (imports)
+import axios from 'axios';
+import QuizSubmit from '../SuccessQuizSubmit';
+import QuizTimer from '../QuizTimer/index';
 
 function ShowQuiz(props) {
-    
-    const { quizData } = props;
+    const { quizData, student_id } = props;
     const { quizInfo, subject } = quizData;
-    console.log(quizInfo, '= quiz info');
-    console.log(subject, '=subject');
+    // console.log(quizInfo, '= quiz info');
+    // console.log(subject, '=subject');
+
+
+    const [finalSubmission, setFinalSubmission] = useState(null);
     const { course_id, course_name, quizzes_info } = subject;
     const { start_date, start_time, duration } = quizzes_info[0];
     const { questions } = quizInfo;
-    console.log(questions, '=questions');
+    // console.log(questions, '=questions');
 
     const handleAnswerChange = (questionIndex, optionIndex) => {
-        console.log(questionIndex, '= question index');
-        console.log(optionIndex, '= option index');
-
+        const questionName = questions[questionIndex]?.question;
+        const answerChosen = questions[questionIndex]?.options[optionIndex];
+        const type = questions[questionIndex]?.type;
+        console.log(type, '= type of question')
         setAnswers((prevAnswers) => {
+            // console.log(prevAnswers, '= previous answers array')
             const updatedAnswers = [...prevAnswers];
-            if (!updatedAnswers[questionIndex]) {
-                updatedAnswers[questionIndex] = [];
-            }
 
-            const isOptionSelected = updatedAnswers[questionIndex].includes(optionIndex);
-            if (isOptionSelected) {
-                // Remove the option if already selected
-                updatedAnswers[questionIndex] = updatedAnswers[questionIndex].filter((index) => index !== optionIndex);
+            // Check if the question is already present in updatedAnswers
+            const existingAnswerIndex = updatedAnswers.findIndex((ans) => ans.question === questionName);
+
+            if (existingAnswerIndex !== -1) {
+                // If the question is present, update the chosen_option
+                if (type == 'multipleChoice') {
+                    updatedAnswers[existingAnswerIndex].chosen_option = answerChosen;
+                }
+                // multiple answer type
+                else {
+                    // i need to first check if the selected item by user already is in the existing answer
+                    if (!updatedAnswers[existingAnswerIndex].chosen_option.includes(answerChosen)) {
+                        updatedAnswers[existingAnswerIndex].chosen_option.push(answerChosen)
+                    }
+                }
             } else {
-                // Add the option if not selected
-                updatedAnswers[questionIndex].push(optionIndex);
+                // If the question is not present, add a new answer
+
+                // if type of question is multiple answer, then i use array for answer chosen
+                if (type == 'multipleChoice') {
+                    updatedAnswers.push({
+                        question: questionName,
+                        chosen_option: answerChosen,
+                    });
+                } else {
+                    updatedAnswers.push({
+                        question: questionName,
+                        chosen_option: [answerChosen],
+                    })
+                }
+
             }
 
             return updatedAnswers;
         });
-        console.log(answers, '= answers ');
     };
 
-    const handleSubmit = (event) => {
-        event.preventDefault();
-        // Flatten the array of answers before submitting
-        const allAnswers = answers.flat();
-        console.log('All Answers:', allAnswers);
-        // You can now send 'allAnswers' to the backend or perform any other desired actions
+    const handleSubmit = async (event) => {
+        try {
+            event.preventDefault();
+
+            const requestBody = { answers: answers.flat() };
+            console.log(requestBody, '= final request to send');
+            // make call to backend for sending q/a to api
+            const endpoint = `http://127.0.0.1:8000/quiz/student/${course_id}/${student_id}/answers/`
+
+            const res = await axios.post(endpoint, requestBody);
+
+            console.log(res.data);
+            setFinalSubmission({ data: res.data, flag: true })
+        } catch (err) {
+            setFinalSubmission({ flag: false, data: err });
+            console.log(err);
+        }
+
+
     };
 
     const [answers, setAnswers] = useState([]);
 
     const renderInput = (questionIndex, optionIndex) => {
-        const answer = questions[questionIndex].answer;
-        const isMultiAnswer = answer && answer.length > 1;
+        const inputType = questions[questionIndex]?.type === 'multipleChoice' ? 'radio' : 'checkbox';
 
-        if (isMultiAnswer) {
-            return (
-                <Form.Check
-                    key={optionIndex}
-                    type="checkbox"
-                    label={questions[questionIndex].options[optionIndex]}
-                    onChange={() => handleAnswerChange(questionIndex, optionIndex)}
-                // checked={answers[questionIndex]?.includes(optionIndex)}
-                />
-            );
-        } else {
-            return (
-                <Form.Check
-                    key={optionIndex}
-                    type="radio"
-                    label={questions[questionIndex].options[optionIndex]}
-                    onChange={() => handleAnswerChange(questionIndex, optionIndex)}
-                    // checked={answers[questionIndex]?.[0] === optionIndex}
-                    name={`question-${questionIndex}`} // Ensure radio buttons share the same name for single-select
-                />
-            );
-        }
+        return (
+            <Form.Check
+                key={optionIndex}
+                type={inputType}
+                label={questions[questionIndex]?.options[optionIndex]}
+                onChange={() => handleAnswerChange(questionIndex, optionIndex)}
+                name={inputType === 'radio' ? `question-${questionIndex}` : undefined}
+                className="mb-2" // Add margin between options
+            />
+        );
     };
+
+    // means user has submitted the responses
+    if (finalSubmission?.flag) {
+        // render another component that shows the student his score and average etc.
+        return (
+            <QuizSubmit finalSubmission={finalSubmission} />
+        )
+    }
 
     return (
         <>
-            <h4>Quiz for {course_name}</h4>
+            <h4 className="mt-4 mb-4">Quiz for {course_name}</h4>
+            <QuizTimer startTime={`${start_date} ${start_time}`} duration={duration} />
             <Container>
+                {(finalSubmission?.flag == false) ? <div className='alert alert-danger'>
+                    Error Occured while trying to submit your responses
+                </div> : null}
                 <Form onSubmit={handleSubmit}>
                     {questions.map((question, questionIndex) => (
                         <div key={questionIndex}>
@@ -170,10 +136,8 @@ function ShowQuiz(props) {
                 </Form>
             </Container>
         </>
-
     );
-}
 
-// export default ShowQuiz;
+}
 
 export default ShowQuiz;

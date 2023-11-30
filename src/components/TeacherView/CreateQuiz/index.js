@@ -23,18 +23,17 @@ function convertTo12HourFormat(time24) {
 
 const CreateQuiz = (props) => {
 
-    const { data } = props;
-
-    console.log(data, '=from props');
-
+    const { data, quiz } = props;
+    const { course } = quiz;
+    const { course_code, course_id, course_name, quizzes_info } = course;
     const { teacher_info, courses_info } = data;
-    const { student_id } = teacher_info; // this will give me the teacher_id to send backend
-    const { course_id } = courses_info[0]; // this will give me the course id to send backend
+
+    const { teacher_id } = teacher_info;
 
     console.log(course_id, '=course')
 
-    const [finalData, setFinalData] = useState(null);
-    const [error, setError] = useState(null)
+    const [isCreated, setIsCreated] = useState(false);
+    const [isError, setError] = useState({ isError: false })
 
     const [startTime, setStartTime] = useState('');
     const [startDate, setStartDate] = useState('');
@@ -72,7 +71,8 @@ const CreateQuiz = (props) => {
                 quiz_content.push({
                     question,
                     options,
-                    correct_answer: answer
+                    correct_answer: answer,
+                    type
                 })
             }
             if (type == 'multipleChoice') {
@@ -84,7 +84,8 @@ const CreateQuiz = (props) => {
                 quiz_content.push({
                     question,
                     options,
-                    correct_answer: answer
+                    correct_answer: answer,
+                    type
                 })
             }
 
@@ -92,7 +93,7 @@ const CreateQuiz = (props) => {
 
         // the request body for the backend
         const quizData = {
-            teacher_id: student_id,
+            teacher_id: teacher_id,
             course_id: course_id,
             quiz_content,
             start_time: convertTo12HourFormat(startTime),
@@ -113,9 +114,14 @@ const CreateQuiz = (props) => {
                 }
             );
             console.log(response.data, '=success call');
-            setFinalData(response.data.message)
+            setIsCreated(true)
+
+            setTimeout(() => {
+                setIsCreated(false);
+            }, 5000);
+
         } catch (err) {
-            setError(err)
+            setError({ isError: true, message: err?.response?.data?.message })
             console.log(err, '=err');
         }
     }
@@ -147,7 +153,7 @@ const CreateQuiz = (props) => {
             const questionType = questions[i]?.type || 'multipleChoice';
 
             questionCards.push(
-                <Card key={i} className="mb-3">
+                <Card key={i} className="mb-4" style={{ borderRadius: '15px', margin: '15px', backgroundColor: 'aliceblue' }}>
                     <Card.Body>
                         <h5>Question {i + 1}</h5>
                         <Form.Group controlId={`questionType${i + 1}`}>
@@ -215,49 +221,57 @@ const CreateQuiz = (props) => {
         setQuestions(updatedQuestions);
     };
 
-    if (error) {
-        return (<div className='alert alert-danger'>
-            Looks like you faced an error while trying to create the quiz. Please try again at a later time.
-        </div>)
-    }
 
-    if (finalData) {
-        return (<h4>
-            {finalData}
-        </h4>)
-    }
+
+
+
+
 
     return (
-        <Container>
+        <Container className="mt-5 p-4" style={{ background: '#FFF7F0', borderRadius: '10px' }}>
+            <h2 className="mb-4">Create Quiz</h2>
+
             <Form onSubmit={handleQuizSubmit}>
 
-                <Form.Group controlId="startDate">
-                    <Form.Label>Start Date:</Form.Label>
-                    <Form.Control type="date" onChange={(e) => setStartDate(e.target.value)} required />
-                </Form.Group>
+                <div className="row">
+                    <div className='col-md-6'>
+                        <Form.Group controlId="startDate">
+                            <Form.Label>Start Date:</Form.Label>
+                            <Form.Control type="date" onChange={(e) => setStartDate(e.target.value)} required />
+                        </Form.Group>
 
-                <Form.Group controlId="startTime">
-                    <Form.Label>Start Time:</Form.Label>
-                    <Form.Control type="time" onChange={(e) => setStartTime(e.target.value)} required />
-                </Form.Group>
+                        <Form.Group controlId="startTime">
+                            <Form.Label>Start Time:</Form.Label>
+                            <Form.Control type="time" onChange={(e) => setStartTime(e.target.value)} required />
+                        </Form.Group>
 
-                <Form.Group controlId="duration">
-                    <Form.Label>Duration (in minutes):</Form.Label>
-                    <Form.Control type="number" min="1" onChange={(e) => setDuration(e.target.value)} required />
-                </Form.Group>
+                        <Form.Group controlId="duration">
+                            <Form.Label>Duration (in minutes):</Form.Label>
+                            <Form.Control type="number" min="1" onChange={(e) => setDuration(e.target.value)} required />
+                        </Form.Group>
+                    </div>
 
-                <Form.Group controlId="numberOfQuestions">
-                    <Form.Label>Number of Questions:</Form.Label>
-                    <Form.Control type="number" onChange={(e) => setNumberOfQuestions(e.target.value)} required />
-                </Form.Group>
+                    <div className="col-md-6">
+                        <Form.Group controlId="numberOfQuestions">
+                            <Form.Label>Number of Questions:</Form.Label>
+                            <Form.Control type="number" onChange={(e) => setNumberOfQuestions(e.target.value)} required />
+                        </Form.Group>
 
-                {renderQuestionForm()}
+                        {renderQuestionForm()}
+                        <Button variant="primary" type="submit">
+                            Create Quiz
+                        </Button>
 
-                <Button variant="primary" type="submit">
-                    Create Quiz
-                </Button>
+
+                    </div>
+                    {isCreated ? (<div className="alert alert-success" style={{ margin: '10px' }}>{`Quiz Created Successfully`}</div>) : null}
+                    {isError.isError ? (<div className="alert alert-danger" style={{ margin: '10px' }}>{`Error : ${isError.message}`}</div>) : null}
+                </div>
+
+
+
             </Form>
-        </Container>
+        </Container >
     );
 };
 

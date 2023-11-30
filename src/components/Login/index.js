@@ -43,7 +43,7 @@ const LoginComponent = () => {
     };
 
     if (formData.is_teacher && data && !err) {
-        return <TeacherView data={data} />
+        return <TeacherView data={data} handleData={setData}/>
     }
     if (!formData.is_teacher && data && !err) {
         return <StudentView data={data} />
